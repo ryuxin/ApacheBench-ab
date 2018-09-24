@@ -1,0 +1,54 @@
+Description: Fix Proxy responses with error status and "ProxyErrorOverride On"
+
+PR53420: Proxy responses with error status and
+"ProxyErrorOverride On" hang until proxy timeout.
+
+Regression from 2.2. It was introduced by r912063
+in order to fix PR41646.
+
+Switch preference for headers, Transfer-Encoding
+first, Content-Length second.
+
+Author: Jim Jagielski <jim@apache.org>
+Reviewed-by: Christian Ehrhardt <christian.ehrhardt@canonical.com>
+Origin: upstream, https://svn.apache.org/viewvc?view=revision&revision=1621601
+Bug: https://bz.apache.org/bugzilla/show_bug.cgi?id=53420
+Bug-Ubuntu: https://launchpad.net/bugs/1495988
+Index: apache2-2.4.7/CHANGES
+===================================================================
+--- apache2-2.4.7.orig/CHANGES
++++ apache2-2.4.7/CHANGES
+@@ -2,6 +2,10 @@
+ 
+ Changes with Apache 2.4.7
+ 
++  *) mod_proxy_http: Proxy responses with error status and
++     "ProxyErrorOverride On" hang until proxy timeout.
++     PR53420 [Rainer Jung]
++
+   *) mod_proxy_wstunnel: Don't pool backend websockets connections,
+      because we need to handshake every time. PR 55890.
+      [Eric Covener]
+Index: apache2-2.4.7/modules/proxy/mod_proxy_http.c
+===================================================================
+--- apache2-2.4.7.orig/modules/proxy/mod_proxy_http.c
++++ apache2-2.4.7/modules/proxy/mod_proxy_http.c
+@@ -1635,6 +1635,18 @@ apr_status_t ap_proxy_http_process_respo
+             if (!r->header_only && /* not HEAD request */
+                 (proxy_status != HTTP_NO_CONTENT) && /* not 204 */
+                 (proxy_status != HTTP_NOT_MODIFIED)) { /* not 304 */
++                const char *tmp;
++                /* Add minimal headers needed to allow http_in filter
++                 * detecting end of body without waiting for a timeout. */
++                if ((tmp = apr_table_get(r->headers_out, "Transfer-Encoding"))) {
++                    apr_table_set(backend->r->headers_in, "Transfer-Encoding", tmp);
++                }
++                else if ((tmp = apr_table_get(r->headers_out, "Content-Length"))) {
++                    apr_table_set(backend->r->headers_in, "Content-Length", tmp);
++                }
++                else if (te) {
++                    apr_table_set(backend->r->headers_in, "Transfer-Encoding", te);
++                }
+                 ap_discard_request_body(backend->r);
+             }
+             return proxy_status;

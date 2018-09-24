@@ -1,0 +1,15 @@
+# For an explanation of the disabled pieces here, see:
+# https://lists.ubuntu.com/archives/ubuntu-quality/2013-November/004679.html
+
+Tests: duplicate-module-load
+Restrictions: allow-stderr
+Depends: apache2
+
+Tests: ssl-passphrase
+Restrictions: needs-root allow-stderr
+Depends: apache2, curl, expect, ssl-cert
+
+#Tests: chroot
+#Features: no-build-needed
+#Restrictions: needs-root allow-stderr breaks-testbed
+#Depends: apache2, wget, dpkg-dev

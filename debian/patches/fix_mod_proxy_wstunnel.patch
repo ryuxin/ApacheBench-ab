@@ -1,0 +1,40 @@
+Description: Don't reuse socket in proxy_wstunnel
+Reusing sockets causes issue for ssl connections while proxying.
+Initial commit 0c3795fee530e0e40243f723d2750cdfed909045 is reverted and reimplemented by
+53038bd5b1e9f072460e6aeac2ae433c4854f2ad. This was due to the socket being closed too early in 
+the connection.
+Author: Eric Covener <covener@apache.org>
+Reviewed-by: Dave Chiluk <chiluk@canonical.com>
+Origin: upstream, https://github.com/apache/httpd/commit/0c3795fee530e0e40243f723d2750cdfed909045
+Origin: upstream, https://github.com/apache/httpd/commit/53038bd5b1e9f072460e6aeac2ae433c4854f2ad
+Bug: https://bz.apache.org/bugzilla/show_bug.cgi?id=55890
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+Index: apache2-2.4.7/CHANGES
+===================================================================
+--- apache2-2.4.7.orig/CHANGES	2016-01-13 14:05:14.080105323 -0600
++++ apache2-2.4.7/CHANGES	2016-01-13 14:05:14.076105304 -0600
+@@ -2,6 +2,10 @@
+ 
+ Changes with Apache 2.4.7
+ 
++  *) mod_proxy_wstunnel: Don't pool backend websockets connections,
++     because we need to handshake every time. PR 55890.
++     [Eric Covener]
++ 
+   *) APR 1.5.0 or later is now required for the event MPM.
+   
+   *) slotmem_shm: Error detection. [Jim Jagielski]
+Index: apache2-2.4.7/modules/proxy/mod_proxy_wstunnel.c
+===================================================================
+--- apache2-2.4.7.orig/modules/proxy/mod_proxy_wstunnel.c	2016-01-13 14:05:14.080105323 -0600
++++ apache2-2.4.7/modules/proxy/mod_proxy_wstunnel.c	2016-01-13 14:06:19.544395119 -0600
+@@ -373,6 +373,8 @@
+                 break;
+          }
+ 
++        backend->close = 1; /* must be after ap_proxy_determine_connection */
++
+         /* Step Three: Process the Request */
+         status = ap_proxy_wstunnel_request(p, r, backend, worker, conf, uri, locurl,
+                                       server_portstr);

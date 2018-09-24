@@ -1,0 +1,18 @@
+Description: core: Fix -D[efined] or <Define>[d] variables lifetime accross restarts.
+ This could cause all kinds of strange behavior. PR 56008. PR 57328.
+Origin: upstream, https://svn.apache.org/viewvc?view=revision&revision=1651083
+Bug: https://bz.apache.org/bugzilla/show_bug.cgi?id=57328
+Bug-Ubuntu: https://bugs.launchpad.net/bugs/1504354
+Last-Update: 2015-10-08
+Index: apache2-2.4.7/server/core.c
+===================================================================
+--- apache2-2.4.7.orig/server/core.c	2015-10-08 19:14:34.103217971 -0400
++++ apache2-2.4.7/server/core.c	2015-10-08 19:14:34.099217896 -0400
+@@ -1270,6 +1270,7 @@
+ static int reset_config_defines(void *dummy)
+ {
+     ap_server_config_defines = saved_server_config_defines;
++    saved_server_config_defines = NULL;
+     server_config_defined_vars = NULL;
+     return OK;
+ }

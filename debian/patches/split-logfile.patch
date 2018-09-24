@@ -1,0 +1,39 @@
+Description: fix completely broken split-logfile command
+Author: Holger Mauermann
+Bug: https://issues.apache.org/bugzilla/show_bug.cgi?id=56329
+Bug-Ubuntu: https://launchpad.net/bugs/1299162
+Reviewed-by: Robie Basak <robie.basak@ubuntu.com>
+Last-Update: 2014-04-03
+
+--- a/support/split-logfile.in	2014-02-13 13:11:33.000000000 +0100
++++ b/support/split-logfile.in	2014-03-28 20:27:59.600942795 +0100
+@@ -29,7 +29,7 @@ 
+ use strict;
+ use warnings;
+ 
+-my %is_open = ();
++my %log_file = ();
+ 
+ while (my $log_line = <STDIN>) {
+     #
+@@ -54,10 +54,9 @@ 
+     # If the log file for this virtual host isn't opened
+     # yet, do it now.
+     #
+-    if (! $is_open{$vhost}) {
+-        open $vhost, ">>${vhost}.log"
++    if (! $log_file{$vhost}) {
++        open $log_file{$vhost}, ">>${vhost}.log"
+             or die ("Can't open ${vhost}.log");
+-        $is_open{$vhost} = 1;
+     }
+     #
+     # Strip off the first token (which may be null in the
+@@ -65,6 +64,6 @@ 
+     # record to the current log file.
+     #
+     $log_line =~ s/^\S*\s+//;
+-    printf $vhost "%s", $log_line;
++    print {$log_file{$vhost}} $log_line;
+ }
+ exit 0;

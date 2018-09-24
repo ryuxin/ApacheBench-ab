@@ -1,0 +1,114 @@
+Description: Pull upstream fixes for autotools for cross-compiling
+Author: Adam Conrad <adconrad@ubuntu.com>
+Origin: upstream, http://svn.eu.apache.org/viewvc?view=revision&revision=1328445
+Origin: upstream, http://svn.eu.apache.org/viewvc?view=revision&revision=1327907
+Origin: upstream, http://svn.eu.apache.org/viewvc?view=revision&revision=1328390
+Origin: upstream, http://svn.eu.apache.org/viewvc?view=revision&revision=1328714
+Forwarded: not-needed
+
+diff -Naurp httpd-2.4.4.orig/acinclude.m4 httpd-2.4.4/acinclude.m4
+--- httpd-2.4.4.orig/acinclude.m4	2013-01-30 10:25:31.000000000 -0600
++++ httpd-2.4.4/acinclude.m4	2013-07-02 08:28:47.666057692 -0500
+@@ -53,6 +53,8 @@ AC_DEFUN(APACHE_GEN_CONFIG_VARS,[
+   APACHE_SUBST(CPPFLAGS)
+   APACHE_SUBST(CFLAGS)
+   APACHE_SUBST(CXXFLAGS)
++  APACHE_SUBST(CC_FOR_BUILD)
++  APACHE_SUBST(CFLAGS_FOR_BUILD)
+   APACHE_SUBST(LTFLAGS)
+   APACHE_SUBST(LDFLAGS)
+   APACHE_SUBST(LT_LDFLAGS)
+@@ -685,7 +687,7 @@ int main(void)
+ {
+     return sizeof(void *) < sizeof(long); 
+ }], [ap_cv_void_ptr_lt_long=no], [ap_cv_void_ptr_lt_long=yes], 
+-    [ap_cv_void_ptr_lt_long=yes])])
++    [ap_cv_void_ptr_lt_long="cross compile - not checked"])])
+ 
+ if test "$ap_cv_void_ptr_lt_long" = "yes"; then
+     AC_MSG_ERROR([Size of "void *" is less than size of "long"])
+diff -Naurp httpd-2.4.4.orig/configure httpd-2.4.4/configure
+--- httpd-2.4.4.orig/configure	2013-02-18 14:28:23.000000000 -0600
++++ httpd-2.4.4/configure	2013-07-02 08:28:47.682057692 -0500
+@@ -660,6 +660,8 @@ HTTPD_LDFLAGS
+ SH_LDFLAGS
+ LT_LDFLAGS
+ LTFLAGS
++CFLAGS_FOR_BUILD
++CC_FOR_BUILD
+ CXXFLAGS
+ CXX
+ other_targets
+@@ -6029,6 +6031,12 @@ fi
+ 
+ 
+ 
++if test "x${build_alias}" != "x${host_alias}"; then
++  if test "x${CC_FOR_BUILD}" = "x"; then
++    CC_FOR_BUILD=cc
++  fi
++fi
++
+ if test "x${cache_file}" = "x/dev/null"; then
+   # Likewise, ensure that CC and CPP are passed through to the pcre
+   # configure script iff caching is disabled (the autoconf 2.5x default).
+@@ -7655,7 +7663,7 @@ if ${ap_cv_void_ptr_lt_long+:} false; th
+   $as_echo_n "(cached) " >&6
+ else
+   if test "$cross_compiling" = yes; then :
+-  ap_cv_void_ptr_lt_long=yes
++  ap_cv_void_ptr_lt_long="cross compile - not checked"
+ else
+   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ /* end confdefs.h.  */
+@@ -32060,6 +32068,14 @@ $as_echo "$as_me: " >&6;}
+ 
+ 
+ 
++  APACHE_VAR_SUBST="$APACHE_VAR_SUBST CC_FOR_BUILD"
++
++
++
++  APACHE_VAR_SUBST="$APACHE_VAR_SUBST CFLAGS_FOR_BUILD"
++
++
++
+   APACHE_VAR_SUBST="$APACHE_VAR_SUBST LTFLAGS"
+ 
+ 
+diff -Naurp httpd-2.4.4.orig/configure.in httpd-2.4.4/configure.in
+--- httpd-2.4.4.orig/configure.in	2013-01-09 10:39:05.000000000 -0600
++++ httpd-2.4.4/configure.in	2013-07-02 08:28:47.690057692 -0500
+@@ -206,6 +206,14 @@ AC_PROG_CPP
+ dnl Try to get c99 support for variadic macros
+ ifdef([AC_PROG_CC_C99], [AC_PROG_CC_C99])
+ 
++dnl In case of cross compilation we set CC_FOR_BUILD to cc unless
++dnl we got already CC_FOR_BUILD from environment.
++if test "x${build_alias}" != "x${host_alias}"; then
++  if test "x${CC_FOR_BUILD}" = "x"; then
++    CC_FOR_BUILD=cc
++  fi
++fi
++
+ if test "x${cache_file}" = "x/dev/null"; then
+   # Likewise, ensure that CC and CPP are passed through to the pcre
+   # configure script iff caching is disabled (the autoconf 2.5x default).
+diff -Naurp httpd-2.4.4.orig/server/Makefile.in httpd-2.4.4/server/Makefile.in
+--- httpd-2.4.4.orig/server/Makefile.in	2013-01-28 07:13:18.000000000 -0600
++++ httpd-2.4.4/server/Makefile.in	2013-07-02 08:28:47.686057692 -0500
+@@ -22,9 +22,14 @@ TARGETS = delete-exports $(LTLIBRARY_NAM
+ include $(top_builddir)/build/rules.mk
+ include $(top_srcdir)/build/library.mk
+ 
++ifdef CC_FOR_BUILD
++gen_test_char: gen_test_char.c
++	$(CC_FOR_BUILD) $(CFLAGS_FOR_BUILD) -DCROSS_COMPILE -o $@ $<
++else
+ gen_test_char_OBJECTS = gen_test_char.lo
+ gen_test_char: $(gen_test_char_OBJECTS)
+ 	$(LINK) $(EXTRA_LDFLAGS) $(gen_test_char_OBJECTS) $(EXTRA_LIBS)
++endif
+ 
+ test_char.h: gen_test_char
+ 	./gen_test_char > test_char.h
